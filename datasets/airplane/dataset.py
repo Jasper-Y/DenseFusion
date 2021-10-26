@@ -102,7 +102,11 @@ class PoseDataset(data.Dataset):
         img = Image.open(self.list_rgb[index])
         ori_img = np.array(img)
         depth = np.array(Image.open(self.list_depth[index]))
-        label = np.array(Image.open(self.list_label[index]))
+        # label = np.array(Image.open(self.list_label[index])) 
+        label = depth.copy() # grayscale, 480*640*1
+        np.place(label, label > 0, 255)
+        if self.mode != 'eval':
+            label = np.dstack([label] * 3)
         obj = self.list_obj[index]
         rank = self.list_rank[index] # rank represents idx in the init function above      
 
@@ -145,6 +149,7 @@ class PoseDataset(data.Dataset):
         target_t = np.array(meta['cam_t_m2c'])
         add_t = np.array([random.uniform(-self.noise_trans, self.noise_trans) for i in range(3)])
 
+        # @TODO: really small size of this choose. Need to check the bbox
         choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]
         if len(choose) == 0:
             cc = torch.LongTensor([0])
@@ -191,7 +196,7 @@ class PoseDataset(data.Dataset):
         #    fw.write('{0} {1} {2}\n'.format(it[0], it[1], it[2]))
         #fw.close()
 
-        target = model_points # these should be transformed points already
+        target = model_points.copy() # these should be transformed points already
         # target = np.dot(model_points, target_r.T)
         # if self.add_noise:
         #     target = np.add(target, target_t / 1000.0 + add_t)
