@@ -23,6 +23,7 @@ from torch.autograd import Variable
 from datasets.ycb.dataset import PoseDataset as PoseDataset_ycb
 from datasets.linemod.dataset import PoseDataset as PoseDataset_linemod
 from datasets.airplane.dataset import PoseDataset as PoseDataset_airplane
+from datasets.construction.dataset import PoseDataset as PoseDataset_construction
 from lib.network import PoseNet, PoseRefineNet
 from lib.loss import Loss
 from lib.loss_refiner import Loss_refine
@@ -71,6 +72,12 @@ def main():
         opt.outf = 'trained_models/airplane'
         opt.log_dir = 'experiments/logs/airplane'
         opt.repeat_epoch = 10
+    elif opt.dataset == 'construction':
+        opt.num_objects = 3
+        opt.num_points = 1024
+        opt.outf = 'trained_models/construction'
+        opt.log_dir = 'experiments/logs/construction'
+        opt.repeat_epoch = 2
         
     else:
         print('Unknown dataset')
@@ -103,6 +110,8 @@ def main():
         dataset = PoseDataset_linemod('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
     elif opt.dataset == 'airplane':
         dataset = PoseDataset_airplane('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
+    elif opt.dataset == 'construction':
+        dataset = PoseDataset_construction('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=opt.workers)
     if opt.dataset == 'ycb':
         test_dataset = PoseDataset_ycb('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
@@ -110,6 +119,8 @@ def main():
         test_dataset = PoseDataset_linemod('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
     elif opt.dataset == 'airplane':
         test_dataset = PoseDataset_airplane('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
+    elif opt.dataset == 'construction':
+        test_dataset = PoseDataset_construction('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
     testdataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=opt.workers)
     
     opt.sym_list = dataset.get_sym_list()
@@ -235,6 +246,8 @@ def main():
                 dataset = PoseDataset_linemod('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
             elif opt.dataset == 'airplane':
                 dataset = PoseDataset_airplane('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
+            elif opt.dataset == 'construction':
+                dataset = PoseDataset_construction('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
             dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=opt.workers)
             if opt.dataset == 'ycb':
                 test_dataset = PoseDataset_ycb('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
@@ -242,6 +255,8 @@ def main():
                 test_dataset = PoseDataset_linemod('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
             elif opt.dataset == 'airplane':
                 test_dataset = PoseDataset_airplane('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
+            elif opt.dataset == 'construction':
+                test_dataset = PoseDataset_construction('test', opt.num_points, False, opt.dataset_root, 0.0, opt.refine_start)
             testdataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=opt.workers)
             
             opt.sym_list = dataset.get_sym_list()
