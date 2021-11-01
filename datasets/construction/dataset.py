@@ -53,10 +53,19 @@ class PoseDataset(data.Dataset):
                 for _ in range(train_obj_num):
                     self.obj_list.append(int(f.readline().strip()))
         
-        image_idx = [i for i in range(100)]
+        if self.mode == 'train':
+            image_idx = []
+            for i in range(20):
+                image_idx.append(5 * i)
+                image_idx.append(5 * i + 1)
+                image_idx.append(5 * i + 2)
+                image_idx.append(5 * i + 3)
+        else:
+            image_idx = [i * 5 + 4 for i in range(20)]
+
 
         item_count = 0
-        # train: obj up to 110, test: obj up to 40
+        # train: 80, test: 20
         for item in self.obj_list:
             poses = {}
             for idx in image_idx:
@@ -72,7 +81,7 @@ class PoseDataset(data.Dataset):
                 self.list_rank.append(idx)
 
                 idx_gt = np.loadtxt(f'{self.root}/train/pose/{item}/{idx}.txt')
-                poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': np.rad2deg(idx_gt[:3,3].reshape(3)).tolist()}
+                poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': idx_gt[:3,3].reshape(3).tolist()}
                 self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
 
             self.meta[item] = poses
@@ -186,24 +195,21 @@ class PoseDataset(data.Dataset):
 
         # model_points = self.pt[obj] / 1000.0
         pcd = o3d.io.read_point_cloud(self.list_pcd[index]) 
-        model_points = np.asarray(pcd.points) 
-        dellist = [j for j in range(0, len(model_points))]
-        dellist = random.sample(dellist, len(model_points) - self.num_pt_mesh_small)
-        model_points = np.delete(model_points, dellist, axis=0)
+        target = np.asarray(pcd.points) 
+        dellist = [j for j in range(0, len(target))]
+        dellist = random.sample(dellist, len(target) - self.num_pt_mesh_small)
+        target = np.delete(target, dellist, axis=0)
 
         #fw = open('evaluation_result/{0}_model_points.xyz'.format(index), 'w')
         #for it in model_points:
         #    fw.write('{0} {1} {2}\n'.format(it[0], it[1], it[2]))
         #fw.close()
 
-        target = model_points.copy() # these should be transformed points already
-        # target = np.dot(model_points, target_r.T)
-        # if self.add_noise:
-        #     target = np.add(target, target_t / 1000.0 + add_t)
-        #     out_t = target_t / 1000.0 + add_t
-        # else:
-        #     target = np.add(target, target_t / 1000.0)
-        #     out_t = target_t / 1000.0
+        model_points = target.copy() # model_points should be the pcd in its own coordinate
+        model_points = np.add(model_points, -target_t)
+        model_points = np.dot(model_points, target_r)
+        if self.add_noise:
+            target = np.add(target, add_t)
 
         #fw = open('evaluation_result/{0}_tar.xyz'.format(index), 'w')
         #for it in target:
