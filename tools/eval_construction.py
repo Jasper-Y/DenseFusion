@@ -31,7 +31,7 @@ opt = parser.parse_args()
 num_objects = 3
 objlist = [0, 1, 2]
 num_points = 1024
-iteration = 10
+iteration = 0
 bs = 1
 dataset_config_dir = 'datasets/construction/dataset_config'
 output_result_dir = 'experiments/eval_result/construction'
@@ -73,8 +73,8 @@ import time
 import cv2
 
 
-def project_3d_2d(p3d, intrinsic_matrix=np.array([[572.4114, 0., 325.2611],[0., 573.57043, 242.04899],[0., 0., 1.]])):
-    p2d = np.dot(p3d, intrinsic_matrix.T)
+def project_3d_2d(p3d, intrinsic_matrix=np.array([[320, 0., 320],[0., 320, 240],[0., 0., 1.]])):
+    p2d = np.dot(p3d * 1000, intrinsic_matrix.T)
     p2d_3 = p2d[:, 2]
     p2d_3[np.where(p2d_3 < 1e-8)] = 1.0
     p2d[:, 2] = p2d_3

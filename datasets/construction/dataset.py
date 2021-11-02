@@ -60,6 +60,11 @@ class PoseDataset(data.Dataset):
                 image_idx.append(5 * i + 1)
                 image_idx.append(5 * i + 2)
                 image_idx.append(5 * i + 3)
+        elif self.mode == 'eval':
+            image_idx = []
+            for i in range(20):
+                image_idx.append(5 * i)
+                image_idx.append(5 * i + 4)
         else:
             image_idx = [i * 5 + 4 for i in range(20)]
 
@@ -70,8 +75,8 @@ class PoseDataset(data.Dataset):
             poses = {}
             for idx in image_idx:
                 item_count += 1
-                if self.mode == 'test' and item_count % 10 != 0:
-                    continue
+                # if self.mode == 'test' and item_count % 10 != 0:
+                #     continue
 
                 self.list_rgb.append(f'{self.root}/train/exr/{item}/clr/{idx}.png')
                 self.list_depth.append(f'{self.root}/train/depth/{item}/{idx}.png')
@@ -198,7 +203,8 @@ class PoseDataset(data.Dataset):
         target = np.asarray(pcd.points) 
         dellist = [j for j in range(0, len(target))]
         dellist = random.sample(dellist, len(target) - self.num_pt_mesh_small)
-        target = np.delete(target, dellist, axis=0)
+        target = np.delete(target, dellist, axis=0) # @check pcd is rotated with x axis
+        target = np.dot(target, np.array([[1, 0, 0],[0, 1, 0],[0, 0, -1]]))
 
         #fw = open('evaluation_result/{0}_model_points.xyz'.format(index), 'w')
         #for it in model_points:

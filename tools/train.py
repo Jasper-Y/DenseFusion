@@ -42,7 +42,7 @@ parser.add_argument('--decay_margin', default=0.016, help='margin to decay lr & 
 parser.add_argument('--refine_margin', default=0.06, help='margin to start the training of iterative refinement')
 parser.add_argument('--noise_trans', default=0.03, help='range of the random noise of translation added to the training data')
 parser.add_argument('--iteration', type=int, default = 4, help='number of refinement iterations')
-parser.add_argument('--nepoch', type=int, default=200, help='max number of epochs to train')
+parser.add_argument('--nepoch', type=int, default=300, help='max number of epochs to train')
 parser.add_argument('--resume_posenet', type=str, default = '',  help='resume PoseNet model')
 parser.add_argument('--resume_refinenet', type=str, default = '',  help='resume PoseRefineNet model')
 parser.add_argument('--start_epoch', type=int, default = 1, help='which epoch to start')
