@@ -30,7 +30,7 @@ opt = parser.parse_args()
 
 num_objects = 3
 objlist = [0, 1, 2]
-num_points = 1024
+num_points = 2000
 iteration = 0
 bs = 1
 dataset_config_dir = 'datasets/construction/dataset_config'
@@ -60,7 +60,7 @@ criterion_refine = Loss_refine(num_points_mesh, sym_list)
 # for obj in objlist:
 #     diameter.append(meta[obj]['diameter'] / 1000.0 * 0.1) # in meter
 # print(diameter)
-diameter = [0.1] * num_objects
+diameter = [0.015] * num_objects
 
 success_count = [0 for i in range(num_objects)]
 num_count = [0 for i in range(num_objects)]
@@ -161,7 +161,8 @@ for i, data in enumerate(testdataloader, 0):
     # trans_pts = np.dot(pts, my_r.T) + my_t[:3]
 
     tmp_img = np.array(Image.open(testdataset.list_rgb[i])) # need to change tmp_img[0][0][0] and tmp_img[0][0][2]
-    tmp_img = np.flip(tmp_img, 2).copy()
+    # tmp_img = np.flip(tmp_img, 2).copy()
+    tmp_img = tmp_img[:,:,:3].copy()
 
     pts_2d = project_3d_2d(pred)
     new_img = draw_p2ds(tmp_img, pts_2d)

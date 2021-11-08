@@ -36,6 +36,7 @@ class PoseDataset(data.Dataset):
         self.meta = {}
         self.pt = {}
         self.list_pcd = []
+        self.list_complete_pcd = []
         self.root = root
         self.noise_trans = noise_trans
         self.refine = refine
@@ -88,8 +89,10 @@ class PoseDataset(data.Dataset):
                 idx_gt = np.loadtxt(f'{self.root}/train/pose/{item}/{idx}.txt')
                 poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': idx_gt[:3,3].reshape(3).tolist()}
                 self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
+                self.list_complete_pcd.append(f'{self.root}/complete/construction/{item}.pcd')
 
             self.meta[item] = poses
+            self.pt[item] = np.asarray(o3d.io.read_point_cloud(f'{self.root}/complete/construction/{item}.pcd').points) 
             
             print("Object {0} buffer loaded".format(item))
 
@@ -198,29 +201,32 @@ class PoseDataset(data.Dataset):
         #fw.close()
 
 
-        # model_points = self.pt[obj] / 1000.0
-        pcd = o3d.io.read_point_cloud(self.list_pcd[index]) 
-        target = np.asarray(pcd.points) 
-        dellist = [j for j in range(0, len(target))]
-        dellist = random.sample(dellist, len(target) - self.num_pt_mesh_small)
-        target = np.delete(target, dellist, axis=0) # @check pcd is rotated with x axis
-        target = np.dot(target, np.array([[1, 0, 0],[0, 1, 0],[0, 0, -1]]))
+        # # model_points = self.pt[obj] / 1000.0
+        # pcd = o3d.io.read_point_cloud(self.list_pcd[index]) 
+        # target = np.asarray(pcd.points) 
+        # dellist = [j for j in range(0, len(target))]
+        # dellist = random.sample(dellist, len(target) - self.num_pt_mesh_small)
+        # target = np.delete(target, dellist, axis=0) # @check pcd is rotated with x axis
+        # target = np.dot(target, np.array([[1, 0, 0],[0, -1, 0],[0, 0, -1]]))
 
-        #fw = open('evaluation_result/{0}_model_points.xyz'.format(index), 'w')
-        #for it in model_points:
-        #    fw.write('{0} {1} {2}\n'.format(it[0], it[1], it[2]))
-        #fw.close()
+        # model_points = target.copy() # model_points should be the pcd in its own coordinate
+        # model_points = np.add(model_points, -target_t)
+        # model_points = np.dot(model_points, target_r)
+        # if self.add_noise:
+        #     target = np.add(target, add_t)
 
-        model_points = target.copy() # model_points should be the pcd in its own coordinate
-        model_points = np.add(model_points, -target_t)
-        model_points = np.dot(model_points, target_r)
+        # use complete pcd
+        model_points = self.pt[obj]
+        dellist = [j for j in range(0, len(model_points))]
+        dellist = random.sample(dellist, len(model_points) - self.num_pt_mesh_small)
+        model_points = np.delete(model_points, dellist, axis=0)
+        # model_points = np.dot(model_points, np.array([[1, 0, 0],[0, -1, 0],[0, 0, -1]]))
+
+        target = np.add(model_points, -target_t)
+        target = np.dot(target, np.dot(target_r, np.array([[1, 0, 0],[0, -1, 0],[0, 0, -1]])))
         if self.add_noise:
             target = np.add(target, add_t)
 
-        #fw = open('evaluation_result/{0}_tar.xyz'.format(index), 'w')
-        #for it in target:
-        #    fw.write('{0} {1} {2}\n'.format(it[0], it[1], it[2]))
-        #fw.close()
 
         return torch.from_numpy(cloud.astype(np.float32)), \
                torch.LongTensor(choose.astype(np.int32)), \
