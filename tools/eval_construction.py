@@ -2,9 +2,11 @@ import _init_paths
 import argparse
 import os
 import random
+import time
 import numpy as np
 import yaml
 import copy
+import open3d as o3d
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -28,10 +30,11 @@ parser.add_argument('--model', type=str, default = '',  help='resume PoseNet mod
 parser.add_argument('--refine_model', type=str, default = '',  help='resume PoseRefineNet model')
 opt = parser.parse_args()
 
+test_icp = True
 num_objects = 3
 objlist = [0, 1, 2]
 num_points = 2000
-iteration = 0
+iteration = 10
 bs = 1
 dataset_config_dir = 'datasets/construction/dataset_config'
 output_result_dir = 'experiments/eval_result/construction'
@@ -60,7 +63,7 @@ criterion_refine = Loss_refine(num_points_mesh, sym_list)
 # for obj in objlist:
 #     diameter.append(meta[obj]['diameter'] / 1000.0 * 0.1) # in meter
 # print(diameter)
-diameter = [0.015] * num_objects
+diameter = [0.07] * num_objects
 
 success_count = [0 for i in range(num_objects)]
 num_count = [0 for i in range(num_objects)]
@@ -156,6 +159,39 @@ for i, data in enumerate(testdataloader, 0):
     my_r = quaternion_matrix(my_r)[:3, :3]
     pred = np.dot(model_points, my_r.T) + my_t
     target = target[0].cpu().detach().numpy()
+
+    if test_icp:
+        time_start = time.time()
+        source_pcd = o3d.geometry.PointCloud()
+        source_pcd.points = o3d.utility.Vector3dVector(model_points)
+        # source_pcd = o3d.io.read_point_cloud(f'datasets/construction/Construction_data/complete/construction/{idx[0]}.pcd')
+        target_pcd = o3d.geometry.PointCloud()
+        target_pcd.points = o3d.utility.Vector3dVector(target)
+        # init_pose = np.eye(4)
+        # init_pose[1][1] = -1
+        # init_pose[2][2] = -1
+        # init_pose[2][3] = 1
+        init_pose = np.concatenate((my_r, np.array([my_t]).T), axis=1)
+        init_pose = np.concatenate((init_pose, np.array([[0, 0, 0, 1]])), axis=0) 
+        reg_p2p = o3d.pipelines.registration.registration_icp(source_pcd, target_pcd, 10, init_pose, o3d.pipelines.registration.TransformationEstimationPointToPoint(), o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=4000))
+        pred_icp = np.dot(model_points, reg_p2p.transformation[:3, :3]) + reg_p2p.transformation[:3,3]
+        tmp_img = np.array(Image.open(testdataset.list_rgb[i]))
+        tmp_img = tmp_img[:,:,:3].copy()
+
+        pts_2d = project_3d_2d(pred_icp)
+        new_img = draw_p2ds(tmp_img, pts_2d)
+        cv2.imwrite(f"eval_vis/{idx[0].item()}/{i - last_item_id}_icp.jpg", new_img)
+
+        # @TODO: only asymetric here
+        dis = np.mean(np.linalg.norm(pred_icp - target, axis=1))
+
+        # if dis < diameter[idx[0].item()]:
+        #     print('Item {0} No.{1} Pass using ICP! Distance: {2}'.format(idx[0].item(), i - last_item_id, dis))
+        #     fw.write('Item {0} No.{1} Pass using ICP! Distance: {2}\n'.format(idx[0].item(), i - last_item_id, dis))
+        # else:
+        #     print('Item {0} No.{1} NOT Pass using ICP! Distance: {2}'.format(idx[0].item(), i - last_item_id, dis))
+        #     fw.write('Item {0} No.{1} NOT Pass using ICP! Distance: {2}\n'.format(idx[0].item(), i - last_item_id, dis))
+        # print(f"Inference using ICP cost {time.time() - time_start} s")
 
     # pts = points.cpu().numpy().astype("float32")[0]
     # trans_pts = np.dot(pts, my_r.T) + my_t[:3]
