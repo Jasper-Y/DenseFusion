@@ -21,8 +21,8 @@ import yaml
 import cv2
 import open3d as o3d
 
-train_obj_num = 20
-test_obj_num = 10
+train_obj_num = 1
+test_obj_num = 1
 
 class PoseDataset(data.Dataset):
     def __init__(self, mode, num, add_noise, root, noise_trans, refine):
@@ -36,6 +36,7 @@ class PoseDataset(data.Dataset):
         self.meta = {}
         self.pt = {}
         self.list_pcd = []
+        self.list_complete_pcd = []
         self.root = root
         self.noise_trans = noise_trans
         self.refine = refine
@@ -49,11 +50,24 @@ class PoseDataset(data.Dataset):
         #     with open(f"{self.root}/test_list_sort.txt", 'r') as f:
         #         for _ in range(test_obj_num):
         #             self.obj_list.append(int(f.readline().strip()))
-        with open(f"{self.root}/train_list_sort.txt", 'r') as f:
-                for _ in range(train_obj_num):
-                    self.obj_list.append(int(f.readline().strip()))
-        
-        image_idx = [i for i in range(100)]
+        # with open(f"{self.root}/train_list_sort.txt", 'r') as f:
+        #         for _ in range(train_obj_num):
+        #             self.obj_list.append(int(f.readline().strip()))
+        self.obj_list = [2]
+        if self.mode == 'train':
+            image_idx = []
+            for i in range(20):
+                image_idx.append(5 * i)
+                image_idx.append(5 * i + 1)
+                image_idx.append(5 * i + 2)
+                image_idx.append(5 * i + 3)
+        elif self.mode == 'eval':
+            image_idx = []
+            for i in range(20):
+                # image_idx.append(5 * i)
+                image_idx.append(5 * i + 4)
+        else:
+            image_idx = [i * 5 + 4 for i in range(20)]
 
         item_count = 0
         # train: obj up to 110, test: obj up to 40
@@ -61,22 +75,23 @@ class PoseDataset(data.Dataset):
             poses = {}
             for idx in image_idx:
                 item_count += 1
-                if self.mode == 'test' and item_count % 10 != 0:
-                    continue
+                # if self.mode == 'test' and item_count % 10 != 0:
+                #     continue
 
                 self.list_rgb.append(f'{self.root}/train/exr/{item}/clr/{idx}.png')
                 self.list_depth.append(f'{self.root}/train/depth/{item}/{idx}.png')
-                self.list_label.append(f'{self.root}/train/exr/{item}/mask/{idx}.png')
+                # self.list_label.append(f'{self.root}/train/exr/{item}/mask/{idx}.png')
                 
                 self.list_obj.append(item)
                 self.list_rank.append(idx)
 
                 idx_gt = np.loadtxt(f'{self.root}/train/pose/{item}/{idx}.txt')
-                poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': np.rad2deg(idx_gt[:3,3].reshape(3)).tolist()}
+                poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': idx_gt[:3,3].reshape(3).tolist()}
                 self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
 
             self.meta[item] = poses
-            
+            self.pt[item] = np.asarray(o3d.io.read_point_cloud(f'{self.root}/complete/{item}.pcd').points) 
+         
             print("Object {0} buffer loaded".format(item))
 
         self.length = len(self.list_rgb)
@@ -96,7 +111,8 @@ class PoseDataset(data.Dataset):
         self.border_list = [-1, 40, 80, 120, 160, 200, 240, 280, 320, 360, 400, 440, 480, 520, 560, 600, 640, 680]
         self.num_pt_mesh_large = 1000
         self.num_pt_mesh_small = 1000
-        self.symmetry_obj_idx = self.obj_list.copy()
+        # self.symmetry_obj_idx = self.obj_list.copy()
+        self.symmetry_obj_idx = []
 
     def __getitem__(self, index):
         img = Image.open(self.list_rgb[index])
@@ -185,18 +201,24 @@ class PoseDataset(data.Dataset):
 
 
         # model_points = self.pt[obj] / 1000.0
-        pcd = o3d.io.read_point_cloud(self.list_pcd[index]) 
-        model_points = np.asarray(pcd.points) 
+        # pcd = o3d.io.read_point_cloud(self.list_pcd[index]) 
+        # model_points = np.asarray(pcd.points) 
+        model_points = self.pt[obj]
         dellist = [j for j in range(0, len(model_points))]
         dellist = random.sample(dellist, len(model_points) - self.num_pt_mesh_small)
         model_points = np.delete(model_points, dellist, axis=0)
+
+        target = np.add(model_points, -target_t)
+        target = np.dot(target, np.dot(target_r, np.array([[1, 0, 0],[0, -1, 0],[0, 0, -1]])))
+        if self.add_noise:
+            target = np.add(target, add_t)
 
         #fw = open('evaluation_result/{0}_model_points.xyz'.format(index), 'w')
         #for it in model_points:
         #    fw.write('{0} {1} {2}\n'.format(it[0], it[1], it[2]))
         #fw.close()
 
-        target = model_points.copy() # these should be transformed points already
+        # target = model_points.copy() # these should be transformed points already
         # target = np.dot(model_points, target_r.T)
         # if self.add_noise:
         #     target = np.add(target, target_t / 1000.0 + add_t)

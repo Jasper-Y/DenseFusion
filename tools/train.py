@@ -34,12 +34,12 @@ parser.add_argument('--dataset', type=str, default = 'ycb', help='ycb or linemod
 parser.add_argument('--dataset_root', type=str, default = '', help='dataset root dir (''YCB_Video_Dataset'' or ''Linemod_preprocessed'')')
 parser.add_argument('--batch_size', type=int, default = 16, help='batch size')
 parser.add_argument('--workers', type=int, default = 0, help='number of data loading workers')
-parser.add_argument('--lr', default=0.0001, help='learning rate')
+parser.add_argument('--lr', default=0.00001, help='learning rate')
 parser.add_argument('--lr_rate', default=0.3, help='learning rate decay rate')
 parser.add_argument('--w', default=0.001, help='learning rate')
 parser.add_argument('--w_rate', default=0.3, help='learning rate decay rate')
-parser.add_argument('--decay_margin', default=0.04, help='margin to decay lr & w')
-parser.add_argument('--refine_margin', default=0.015, help='margin to start the training of iterative refinement')
+parser.add_argument('--decay_margin', default=0.06, help='margin to decay lr & w')
+parser.add_argument('--refine_margin', default=0.06, help='margin to start the training of iterative refinement')
 parser.add_argument('--noise_trans', default=0.03, help='range of the random noise of translation added to the training data')
 parser.add_argument('--iteration', type=int, default = 4, help='number of refinement iterations')
 parser.add_argument('--nepoch', type=int, default=500, help='max number of epochs to train')
@@ -67,11 +67,11 @@ def main():
         opt.log_dir = 'experiments/logs/linemod'
         opt.repeat_epoch = 20
     elif opt.dataset == 'airplane':
-        opt.num_objects = 20
-        opt.num_points = 1000
+        opt.num_objects = 1
+        opt.num_points = 1024
         opt.outf = 'trained_models/airplane'
         opt.log_dir = 'experiments/logs/airplane'
-        opt.repeat_epoch = 10
+        opt.repeat_epoch = 1
     elif opt.dataset == 'construction':
         opt.num_objects = 3
         opt.num_points = 1024
