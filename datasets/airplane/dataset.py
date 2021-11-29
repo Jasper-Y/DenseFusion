@@ -87,7 +87,7 @@ class PoseDataset(data.Dataset):
 
                 idx_gt = np.loadtxt(f'{self.root}/train/pose/{item}/{idx}.txt')
                 poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': idx_gt[:3,3].reshape(3).tolist()}
-                self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
+                # self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
 
             self.meta[item] = poses
             self.pt[item] = np.asarray(o3d.io.read_point_cloud(f'{self.root}/complete/{item}.pcd').points) 
