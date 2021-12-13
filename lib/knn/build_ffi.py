@@ -2,13 +2,15 @@
 import glob
 import torch
 from os import path as osp
-from torch.utils.ffi import create_extension
+# from torch.utils.ffi import create_extension
+from torch.utils.cpp_extension import BuildExtension
+# from torch_ff.py import _wrap_function
 
 abs_path = osp.dirname(osp.realpath(__file__))
 extra_objects = [osp.join(abs_path, 'build/knn_cuda_kernel.so')]
 extra_objects += glob.glob('/usr/local/cuda/lib64/*.a')
 
-ffi = create_extension(
+ffi = BuildExtension(
     'knn_pytorch',
     headers=['src/knn_pytorch.h'],
     sources=['src/knn_pytorch.c'],

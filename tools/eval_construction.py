@@ -34,7 +34,7 @@ test_icp = True
 num_objects = 3
 objlist = [0, 1, 2]
 num_points = 2000
-iteration = 10
+iteration = 0
 bs = 1
 dataset_config_dir = 'datasets/construction/dataset_config'
 output_result_dir = 'experiments/eval_result/construction'
@@ -63,7 +63,7 @@ criterion_refine = Loss_refine(num_points_mesh, sym_list)
 # for obj in objlist:
 #     diameter.append(meta[obj]['diameter'] / 1000.0 * 0.1) # in meter
 # print(diameter)
-diameter = [0.07] * num_objects
+diameter = [0.07, 0.08, 0.09]
 
 success_count = [0 for i in range(num_objects)]
 num_count = [0 for i in range(num_objects)]
@@ -75,6 +75,17 @@ from PIL import Image
 import time
 import cv2
 
+def draw_registration_result(source, target, transformation):
+    source_temp = copy.deepcopy(source)
+    target_temp = copy.deepcopy(target)
+    source_temp.paint_uniform_color([1, 0.706, 0])
+    target_temp.paint_uniform_color([0, 0.651, 0.929])
+    source_temp.transform(transformation)
+    o3d.visualization.draw_geometries([source_temp, target_temp],
+                                      zoom=0.4459,
+                                      front=[0.9288, -0.2951, -0.2242],
+                                      lookat=[1.6784, 2.0612, 1.4451],
+                                      up=[-0.3402, -0.9189, -0.1996])
 
 def project_3d_2d(p3d, intrinsic_matrix=np.array([[320, 0., 320],[0., 320, 240],[0., 0., 1.]])):
     p2d = np.dot(p3d * 1000, intrinsic_matrix.T)
@@ -174,16 +185,19 @@ for i, data in enumerate(testdataloader, 0):
         init_pose = np.concatenate((my_r, np.array([my_t]).T), axis=1)
         init_pose = np.concatenate((init_pose, np.array([[0, 0, 0, 1]])), axis=0) 
         reg_p2p = o3d.pipelines.registration.registration_icp(source_pcd, target_pcd, 10, init_pose, o3d.pipelines.registration.TransformationEstimationPointToPoint(), o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=4000))
-        pred_icp = np.dot(model_points, reg_p2p.transformation[:3, :3]) + reg_p2p.transformation[:3,3]
-        tmp_img = np.array(Image.open(testdataset.list_rgb[i]))
-        tmp_img = tmp_img[:,:,:3].copy()
+        # pred_icp = np.dot(model_points, reg_p2p.transformation[:3, :3]) + reg_p2p.transformation[:3,3]
+        pred = np.dot(model_points, reg_p2p.transformation[:3, :3]) + reg_p2p.transformation[:3,3]
+        # tmp_img = np.array(Image.open(testdataset.list_rgb[i]))
+        # tmp_img = tmp_img[:,:,:3].copy()
 
-        pts_2d = project_3d_2d(pred_icp)
-        new_img = draw_p2ds(tmp_img, pts_2d)
-        cv2.imwrite(f"eval_vis/{idx[0].item()}/{i - last_item_id}_icp.jpg", new_img)
+        # pts_2d = project_3d_2d(pred_icp)
+        # new_img = draw_p2ds(tmp_img, pts_2d)
+        # cv2.imwrite(f"eval_vis/{idx[0].item()}/{i - last_item_id}_icp.jpg", new_img)
 
-        # @TODO: only asymetric here
-        dis = np.mean(np.linalg.norm(pred_icp - target, axis=1))
+        # # @TODO: only asymetric here
+        # dis = np.mean(np.linalg.norm(pred_icp - target, axis=1))
+
+        # draw_registration_result(source_pcd, target_pcd, reg_p2p.transformation)
 
         # if dis < diameter[idx[0].item()]:
         #     print('Item {0} No.{1} Pass using ICP! Distance: {2}'.format(idx[0].item(), i - last_item_id, dis))

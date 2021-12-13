@@ -21,6 +21,9 @@ import yaml
 import cv2
 import open3d as o3d
 
+train_num_per_obj = 800
+eval_num_per_obj = 200
+
 train_obj_num = 3
 test_obj_num = 3
 
@@ -56,18 +59,21 @@ class PoseDataset(data.Dataset):
         
         if self.mode == 'train':
             image_idx = []
-            for i in range(20):
+            for i in range(train_num_per_obj // 5):
                 image_idx.append(5 * i)
                 image_idx.append(5 * i + 1)
                 image_idx.append(5 * i + 2)
                 image_idx.append(5 * i + 3)
         elif self.mode == 'eval':
             image_idx = []
-            for i in range(20):
-                image_idx.append(5 * i)
-                image_idx.append(5 * i + 4)
+            # for i in range(train_num_per_obj // 5):
+            #     image_idx.append(5 * i)
+            #     image_idx.append(5 * i + 4)
+            # use new data
+            for i in range(train_num_per_obj, train_num_per_obj + eval_num_per_obj):
+                image_idx.append(i)
         else:
-            image_idx = [i * 5 + 4 for i in range(20)]
+            image_idx = [i * 5 + 4 for i in range(train_num_per_obj // 5)]
 
 
         item_count = 0
@@ -88,8 +94,8 @@ class PoseDataset(data.Dataset):
 
                 idx_gt = np.loadtxt(f'{self.root}/train/pose/{item}/{idx}.txt')
                 poses[idx] = {'cam_R_m2c': idx_gt[:3,:3].reshape(9).tolist(), 'cam_t_m2c': idx_gt[:3,3].reshape(3).tolist()}
-                self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
-                self.list_complete_pcd.append(f'{self.root}/complete/construction/{item}.pcd')
+                # self.list_pcd.append(f'{self.root}/train/pcd/{item}/{idx}.pcd')
+                # self.list_complete_pcd.append(f'{self.root}/complete/construction/{item}.pcd')
 
             self.meta[item] = poses
             self.pt[item] = np.asarray(o3d.io.read_point_cloud(f'{self.root}/complete/construction/{item}.pcd').points) 
@@ -136,6 +142,16 @@ class PoseDataset(data.Dataset):
         # else:
         meta = self.meta[obj][rank]
 
+        if self.add_noise:
+            img = self.trancolor(img)
+
+        img = np.array(img)[:, :, :3]
+
+        # img, depth = random_occlusion(img, depth, self.list_rgb[index], self.list_depth[index])
+
+        img = np.transpose(img, (2, 0, 1))
+        img_masked = img
+
         mask_depth = ma.getmaskarray(ma.masked_not_equal(depth, 0))
         if self.mode == 'eval':
             mask_label = ma.getmaskarray(ma.masked_equal(label, np.array(255)))
@@ -143,13 +159,6 @@ class PoseDataset(data.Dataset):
             mask_label = ma.getmaskarray(ma.masked_equal(label, np.array([255, 255, 255])))[:, :, 0]
         
         mask = mask_label * mask_depth
-
-        if self.add_noise:
-            img = self.trancolor(img)
-
-        img = np.array(img)[:, :, :3]
-        img = np.transpose(img, (2, 0, 1))
-        img_masked = img
 
         # if self.mode == 'eval':
         #     rmin, rmax, cmin, cmax = get_bbox(mask_to_bbox(mask_label))
@@ -331,3 +340,30 @@ def ply_vtx(path):
     for _ in range(N):
         pts.append(np.float32(f.readline().split()[:3]))
     return np.array(pts)
+
+def random_occlusion(img, dep, pth_rgb, pth_dep):
+    # img: 480 640 3
+    # dep: 480 640
+    rand_x = np.random.randint(200, 280)
+    rand_y = np.random.randint(260, 380)
+    if rand_x > 240:
+        dx = 1
+    else:
+        dx = -1
+
+    if rand_y > 320:
+        dy = 1
+    else:
+        dy = -1
+    
+    # dx = np.random.randint(0, 2) * 2 - 1
+    # dy = np.random.randint(0, 2) * 2 - 1
+    for x in range(rand_x, 240 + 220 * dx, dx):
+        for y in range(rand_y, 320 + 300 * dy, dy):
+            img[x][y] = np.array([0, 0, 0])
+            dep[x][y] = 0
+    cv2.imwrite(pth_rgb, img)
+    new_depth_img = o3d.geometry.Image(np.uint16(dep))
+    o3d.io.write_image(pth_dep, new_depth_img)
+    return img, dep
+

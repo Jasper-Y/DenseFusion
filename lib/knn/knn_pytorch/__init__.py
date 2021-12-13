@@ -1,5 +1,6 @@
 
-from torch.utils.ffi import _wrap_function
+# from torch.utils.ffi import _wrap_function
+from torch_ff import _wrap_function
 from ._knn_pytorch import lib as _lib, ffi as _ffi
 
 __all__ = []
