@@ -67,6 +67,10 @@ diameter = [0.07, 0.08, 0.09]
 
 success_count = [0 for i in range(num_objects)]
 num_count = [0 for i in range(num_objects)]
+# far_success_count = [0 for i in range(num_objects)]
+# far_num_count = [0 for i in range(num_objects)]
+# near_success_count = [0 for i in range(num_objects)]
+# near_num_count = [0 for i in range(num_objects)]
 fw = open('{0}/eval_result_logs.txt'.format(output_result_dir), 'w')
 
 import ipdb
@@ -116,12 +120,6 @@ for i, data in enumerate(testdataloader, 0):
         print('No.{0} NOT Pass! Lost detection!'.format(i))
         fw.write('No.{0} NOT Pass! Lost detection!\n'.format(i))
         continue
-    # points: torch.Size([1, 2000, 3])
-    # choose: torch.Size([1, 1, 2000])
-    # img: torch.Size([1, 3, 80, 80])
-    # target: torch.Size([1, 500, 3])
-    # model_points: torch.Size([1, 500, 3])
-    # idx: torch.Size([1, 1])
     points, choose, img, target, model_points, idx = Variable(points).cuda(), \
                                                      Variable(choose).cuda(), \
                                                      Variable(img).cuda(), \
@@ -164,8 +162,6 @@ for i, data in enumerate(testdataloader, 0):
         my_r = my_r_final
         my_t = my_t_final
 
-    # Here 'my_pred' is the final pose estimation result after refinement ('my_r': quaternion, 'my_t': translation)
-
     model_points = model_points[0].cpu().detach().numpy()
     my_r = quaternion_matrix(my_r)[:3, :3]
     pred = np.dot(model_points, my_r.T) + my_t
@@ -178,15 +174,11 @@ for i, data in enumerate(testdataloader, 0):
         # source_pcd = o3d.io.read_point_cloud(f'datasets/construction/Construction_data/complete/construction/{idx[0]}.pcd')
         target_pcd = o3d.geometry.PointCloud()
         target_pcd.points = o3d.utility.Vector3dVector(target)
-        # init_pose = np.eye(4)
-        # init_pose[1][1] = -1
-        # init_pose[2][2] = -1
-        # init_pose[2][3] = 1
         init_pose = np.concatenate((my_r, np.array([my_t]).T), axis=1)
         init_pose = np.concatenate((init_pose, np.array([[0, 0, 0, 1]])), axis=0) 
         reg_p2p = o3d.pipelines.registration.registration_icp(source_pcd, target_pcd, 10, init_pose, o3d.pipelines.registration.TransformationEstimationPointToPoint(), o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=4000))
         # pred_icp = np.dot(model_points, reg_p2p.transformation[:3, :3]) + reg_p2p.transformation[:3,3]
-        pred = np.dot(model_points, reg_p2p.transformation[:3, :3]) + reg_p2p.transformation[:3,3]
+        pred = np.dot(model_points, reg_p2p.transformation[:3, :3].T) + reg_p2p.transformation[:3,3]
         # tmp_img = np.array(Image.open(testdataset.list_rgb[i]))
         # tmp_img = tmp_img[:,:,:3].copy()
 
@@ -210,17 +202,17 @@ for i, data in enumerate(testdataloader, 0):
     # pts = points.cpu().numpy().astype("float32")[0]
     # trans_pts = np.dot(pts, my_r.T) + my_t[:3]
 
-    tmp_img = np.array(Image.open(testdataset.list_rgb[i])) # need to change tmp_img[0][0][0] and tmp_img[0][0][2]
-    # tmp_img = np.flip(tmp_img, 2).copy()
-    tmp_img = tmp_img[:,:,:3].copy()
+    # tmp_img = np.array(Image.open(testdataset.list_rgb[i])) # need to change tmp_img[0][0][0] and tmp_img[0][0][2]
+    # # tmp_img = np.flip(tmp_img, 2).copy()
+    # tmp_img = tmp_img[:,:,:3].copy()
 
-    pts_2d = project_3d_2d(pred)
-    new_img = draw_p2ds(tmp_img, pts_2d)
+    # pts_2d = project_3d_2d(pred)
+    # new_img = draw_p2ds(tmp_img, pts_2d)
     
-    if idx[0].item() != last_item:
-        last_item = idx[0].item()
-        last_item_id = i
-    cv2.imwrite(f"eval_vis/{idx[0].item()}/{i - last_item_id}.jpg", new_img)
+    # if idx[0].item() != last_item:
+    #     last_item = idx[0].item()
+    #     last_item_id = i
+    # cv2.imwrite(f"eval_vis/{idx[0].item()}/{i - last_item_id}.jpg", new_img)
 
     if idx[0].item() in sym_list:
         pred = torch.from_numpy(pred.astype(np.float32)).cuda().transpose(1, 0).contiguous()
@@ -233,12 +225,20 @@ for i, data in enumerate(testdataloader, 0):
 
     if dis < diameter[idx[0].item()]:
         success_count[idx[0].item()] += 1
+        # if (np.linalg.norm(my_t[:3]) < 0.6):
+        #     near_success_count[idx[0].item()] += 1
+        # else:
+        #     far_success_count[idx[0].item()] += 1
         print('Item {0} No.{1} Pass! Distance: {2}'.format(idx[0].item(), i - last_item_id, dis))
         fw.write('Item {0} No.{1} Pass! Distance: {2}\n'.format(idx[0].item(), i - last_item_id, dis))
     else:
         print('Item {0} No.{1} NOT Pass! Distance: {2}'.format(idx[0].item(), i - last_item_id, dis))
         fw.write('Item {0} No.{1} NOT Pass! Distance: {2}\n'.format(idx[0].item(), i - last_item_id, dis))
     num_count[idx[0].item()] += 1
+    # if (np.linalg.norm(my_t[:3]) < 0.6):
+    #     near_num_count[idx[0].item()] += 1
+    # else:
+    #     far_num_count[idx[0].item()] += 1
 
 t_end = time.time()
 
@@ -247,6 +247,10 @@ for i in range(num_objects):
         continue
     print('Object {0} success rate: {1}'.format(objlist[i], float(success_count[i]) / num_count[i]))
     fw.write('Object {0} success rate: {1}\n'.format(objlist[i], float(success_count[i]) / num_count[i]))
+    # print('Object {0} with far distance success rate: {1}'.format(objlist[i], float(far_success_count[i]) / far_num_count[i]))
+    # fw.write('Object {0} with far distance success rate: {1}\n'.format(objlist[i], float(far_success_count[i]) / far_num_count[i]))
+    # print('Object {0} with near distance success rate: {1}'.format(objlist[i], float(near_success_count[i]) / near_num_count[i]))
+    # fw.write('Object {0} with near distance success rate: {1}\n'.format(objlist[i], float(near_success_count[i]) / near_num_count[i]))
 print('ALL success rate: {0}'.format(float(sum(success_count)) / sum(num_count)))
 fw.write('ALL success rate: {0}\n'.format(float(sum(success_count)) / sum(num_count)))
 fw.write(f'Evarage run time: {(t_end - t_start) / sum(num_count)}')
